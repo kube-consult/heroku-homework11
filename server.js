@@ -47,7 +47,7 @@ app.get("/", function(req, res) {
 });
 
 app.get("/add", function(req, res) {
-  res.sendFile(path.join(__dirname, "add.html"));
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
 // Displays all characters
