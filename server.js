@@ -1,94 +1,111 @@
 // Dependencies
 // =============================================================
-var express = require("express");
-var path = require("path");
+const express = require("express");
+const path = require("path");
+const fs = require("fs");
+const util = require("util");
+const readFileAsync = util.promisify(fs.readFile);
+const writeFileAsync = util.promisify(fs.writeFile);
 
 // Sets up the Express App
 // =============================================================
-var app = express();
-var PORT = process.env.PORT || 3000;
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Sets up the Express app to handle data parsing
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Star Wars Characters (DATA)
-// =============================================================
-var characters = [
-  {
-    routeName: "yoda",
-    name: "Yoda",
-    role: "Jedi Master",
-    age: 900,
-    forcePoints: 2000
-  },
-  {
-    routeName: "darthmaul",
-    name: "Darth Maul",
-    role: "Sith Lord",
-    age: 200,
-    forcePoints: 1200
-  },
-  {
-    routeName: "obiwankenobi",
-    name: "Obi Wan Kenobi",
-    role: "Jedi Master",
-    age: 55,
-    forcePoints: 1350
+class dbObj {
+  constructor() {
+    this.db;
+    this.id = 0
   }
-];
+  async read() {
+    const data = await readFileAsync("db/db.json", "utf8");
+    //console.log("pf test ", data);
+    this.db = JSON.parse(data);
+    this.renderNumbers();
+    //console.log(this.db);
+  }
+  renderNumbers() {
+    this.id = 0;
+    this.db.forEach(element => {
+      //console.log(element);
+      element.id = this.id;
+      this.id++;
+    });
+  }
+  async newNotes(obj) {
+    this.db.push(obj);
+    this.renderNumbers();
+    await this.write();
+  }
+  async delNotes(num) {
+    this.db.splice(num,1);
+    this.renderNumbers();
+    await this.write();
+  }
+  async write() {
+    //console.log(this.db);
+    const data = JSON.stringify(this.db);
+    await writeFileAsync("db/db.json", data);
+  }
+}
 
-// Routes
-// =============================================================
-
-// Basic route that sends the user first to the AJAX Page
-app.get("/", function(req, res) {
-  res.sendFile(path.join(__dirname, "view.html"));
-});
-
-app.get("/add", function(req, res) {
+app.get("/", function (req, res) {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-// Displays all characters
-app.get("/api/characters", function(req, res) {
-  return res.json(characters);
+app.get("/notes", function (req, res) {
+  res.sendFile(path.join(__dirname, "public/notes.html"));
 });
 
-// Displays a single character, or returns false
-app.get("/api/characters/:character", function(req, res) {
-  var chosen = req.params.character;
+app.get("/api/notes", function (req, res) {
+  return res.json(notes.db);
+});
+
+app.get("/api/notes/:id", function (req, res) {
+  var chosen = req.params.id;
 
   console.log(chosen);
 
-  for (var i = 0; i < characters.length; i++) {
-    if (chosen === characters[i].routeName) {
-      return res.json(characters[i]);
+  for (var i = 0; i < notes.db.length; i++) {
+
+    if (chosen == notes.db[i].id) {
+      return res.json(notes.db[i]);
     }
   }
 
   return res.json(false);
 });
 
-// Create New Characters - takes in JSON input
-app.post("/api/characters", function(req, res) {
-  // req.body hosts is equal to the JSON post sent from the user
-  // This works because of our body parsing middleware
-  var newCharacter = req.body;
-
-  // Using a RegEx Pattern to remove spaces from newCharacter
-  // You can read more about RegEx Patterns later https://www.regexbuddy.com/regex.html
-  newCharacter.routeName = newCharacter.name.replace(/\s+/g, "").toLowerCase();
-
-  console.log(newCharacter);
-
-  characters.push(newCharacter);
-
-  res.json(newCharacter);
+app.post("/api/notes", function (req, res) {
+  const newNote = req.body;
+  //console.log("entered post");
+  //console.log(newNote);
+  notes.newNotes(newNote);
+  res.json(newNote);
 });
 
-// Starts the server to begin listening
-// =============================================================
-app.listen(PORT, function() {
+app.delete("/api/notes/:id", function (req, res) {
+  const delNote = req.params.id;
+  //console.log(delNote);
+  notes.delNotes(delNote);
+  res.json(true);
+});
+
+app.listen(PORT, function () {
   console.log("App listening on PORT " + PORT);
 });
+
+const notes = new dbObj();
+
+init();
+async function init() {
+  try {
+    await notes.read();
+  } catch (err) {
+    console.log(err);
+  }
+}
